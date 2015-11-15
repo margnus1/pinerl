@@ -1,0 +1,2 @@
+-compile([{parse_transform, pinerl_transform}]).
+-define(PIN(X), begin X end).
