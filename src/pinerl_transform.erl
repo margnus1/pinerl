@@ -104,15 +104,13 @@ clauses([], W) -> {[], W}.
 
 -spec clause(Clause,defs(),warns()) -> {Clause, defs(), warns()}.
 
-clause({clause,Line,H0,G0,B0},D0={S,_Defs0},W0) ->
+clause({clause,Line,H0,G,B0},D0,W0) ->
     %% TODO: Wrong place to do shadowing (it is reused for case etc)
-    %% 0 = ordsets:size(Defs0), %% Only shadowed defs in heads
-    {H1,{?PIN(S),Defs1},W1} = head(H0,D0,W0),
+    {H1,D1,W1} = head(H0,D0,W0),
     %% No more shadowing after the head
-    D1 = {ordsets:new(), ordsets:union(S, Defs1)},
-    G1 = G0,
-    {B1,D2,W2} = exprs(B0,D1,W1),
-    {{clause,Line,H1,G1,B1}, D2, W2}.
+    D2 = defs_end_shadowing(D1),
+    {B1,D3,W2} = exprs(B0,D2,W1),
+    {{clause,Line,H1,G,B1}, D3, W2}.
 
 -spec head([Pattern],defs(),warns()) -> {[Pattern],defs(),warns()}.
 
@@ -131,13 +129,15 @@ patterns([],D,W) -> {[],D,W}.
 -spec pattern(Pattern, defs(), warns()) -> {Pattern, defs(), warns()}.
 %%  N.B. Only valid patterns are included here.
 
-pattern({var,Line,V},{S,Defs},W0) ->
+pattern({var,Line,'_'},D,W) ->
+    {{var,Line,'_'},D,W};
+pattern({var,Line,V},D={_S,Defs},W0) ->
     %% TODO: THE MAGIC HAPPENS HERE
     W1 = case ordsets:is_element(V,Defs) of
 	     false -> W0;
 	     true -> [{Line, ?MODULE, {match_without_pin, V}} | W0]
 	 end,
-    {{var,Line,V}, {S,ordsets:add_element(V,Defs)}, W1};
+    {{var,Line,V}, defs_add(V,D), W1};
 pattern({match,Line,L0,R0},D0,W0) ->
     {L1,D1,W1} = pattern(L0,D0,W0),
     {R1,D2,W2} = pattern(R0,D1,W1),
@@ -186,7 +186,7 @@ pattern({bin,Line,Fs},D0,W0) ->
 %% pattern({atom,Line,A}) -> {atom,Line,A};
 %% pattern({string,Line,S}) -> {string,Line,S};
 %% pattern({nil,Line}) -> {nil,Line};
-pattern({block,_BLine,[{var,VLine,V}]},{S,Defs},W0) ->
+pattern({block,_BLine,[{var,VLine,V}]},D={_S,Defs},W0) ->
     %% TODO: THE MAGIC HAPPENS HERE
     W1 = case ordsets:is_element(V,Defs) of
 	     true -> W0;
@@ -196,7 +196,7 @@ pattern({block,_BLine,[{var,VLine,V}]},{S,Defs},W0) ->
 		 [{VLine, ?MODULE, {undefined_var, V}} | W0]
 	 end,
     %% Insert anyway to not generate spurious extra warnings
-    {{var, VLine, V}, {S,ordsets:add_element(V,Defs)}, W1};
+    {{var, VLine, V}, defs_add(V, D), W1};
 pattern(Literal,D,W) -> {Literal,D,W}.
 
 
@@ -468,15 +468,15 @@ expr({'receive',Line,Cs0},D0,W0) ->
 expr({'receive',Line,Cs0,To0,ToEs0},D0,W0) ->
     {To1,D1,W1} = expr(To0,D0,W0),
     {ToEs1,D2,W2} = exprs(ToEs0,D1,W1),
-    {Cs1,D3,W3} = icr_clauses(Cs0,D2,W2),
-    %% What timeouts end up in To cs ToEs?
-    {'receive',Line,Cs1,To1,ToEs1};
+    {Cs1,D3,W3} = icr_clauses(Cs0,D1,W2),
+    {{'receive',Line,Cs1,To1,ToEs1},defs_inf(D2, D3),W3};
 expr({'try',Line,Es0,Scs0,Ccs0,As0},D0,W0) ->
-    {Es1,D1,W1} = exprs(Es0,D0,W0),
-    {Scs1,D2,W2} = icr_clauses(Scs0,D1,W1),
-    {Ccs1,D3,W3} = icr_clauses(Ccs0,D2,W2),
-    {As1,D4,W4} = exprs(As0,D3,W3),
-    {'try',Line,Es1,Scs1,Ccs1,As1};
+    {Es1,_D1,W1} = exprs(Es0,D0,W0),
+    %% Odd that these do not see D1
+    {Scs1,_D2,W2} = icr_clauses(Scs0,D0,W1),
+    {Ccs1,_D3,W3} = icr_clauses(Ccs0,D0,W2),
+    {As1,_D4,W4} = exprs(As0,D0,W3),
+    {{'try',Line,Es1,Scs1,Ccs1,As1}, D0, W4};
 expr({'fun',Line,Body},D0,W0) ->
     case Body of
 	{clauses,Cs0} ->
@@ -495,7 +495,8 @@ expr({'fun',Line,Body},D0,W0) ->
 	    {{'fun',Line,{function,M,F,A}},D3,W3}
     end;
 expr({named_fun,Loc,Name,Cs0},D0,W0) ->
-    {Cs1,W1} = fun_clauses(Cs0,D0,W0),
+    D1 = defs_add(Name, D0),
+    {Cs1,W1} = fun_clauses(Cs0,D1,W0),
     {{named_fun,Loc,Name,Cs1},D0,W1};
 expr({call,Line,F0,As0},D0,W0) ->
     %% N.B. If F an atom then call to local function or BIF, if F a
@@ -600,15 +601,28 @@ lc_bc_quals([],D,W) -> {[],D,W}.
 -spec fun_clauses([Clause],defs(),warns()) -> {[Clause],warns()}.
 
 fun_clauses([C0|Cs0],D,W0) ->
-    {C1,_D1,W1} = clause(C0,D,W0),
+    {C1,_D1,W1} = clause(C0,defs_start_shadowing(D),W0),
     {Cs1,W2} = fun_clauses(Cs0,D,W1),
     {[C1|Cs1], W2};
 fun_clauses([],_D,W) -> {[],W}.
 
-
 %% UTILITIES ------------------------------------------------------------------
 
 %% Computes the infinimum (or intersection) of two definition maps.
+-spec defs_inf(defs(), defs()) -> defs().
 defs_inf({SA,DA},{SB,DB}) ->
     ?PIN(SA) = SB,
     {SA, ordsets:intersection(DA, DB)}.
+
+-spec defs_add(atom(), defs()) -> defs().
+defs_add(Var, {S,Defs}) ->
+    {S,ordsets:add_element(Var,Defs)}.
+
+-spec defs_start_shadowing(defs()) -> defs().
+defs_start_shadowing({S,Defs}) ->
+    0 = ordsets:size(S),
+    {Defs, ordsets:new()}.
+
+-spec defs_end_shadowing(defs()) -> defs().
+defs_end_shadowing({S,Defs}) ->
+    {ordsets:new(), ordsets:union(S, Defs)}.
