@@ -583,14 +583,14 @@ icr_clauses([],D,W) -> {[],D,W}.
 %%  Allow filters to be both guard tests and general expressions.
 
 lc_bc_quals([{generate,Line,P0,E0}|Qs0],D0,W0) ->
-    {E1,D1,W1} = expr(E0,D0,W0),
-    {P1,D2,W2} = pattern(P0,D1,W1),
-    {Qs1,D3,W3} = lc_bc_quals(Qs0,D2,W2),
+    {E1,_D1,W1} = expr(E0,D0,W0),
+    {P1,D2,W2} = pattern(P0,defs_start_shadowing(D0),W1),
+    {Qs1,D3,W3} = lc_bc_quals(Qs0,defs_end_shadowing(D2),W2),
     {[{generate,Line,P1,E1}|Qs1],D3,W3};
 lc_bc_quals([{b_generate,Line,P0,E0}|Qs0],D0,W0) ->
-    {E1,D1,W1} = expr(E0,D0,W0),
-    {P1,D2,W2} = pattern(P0,D1,W1),
-    {Qs1,D3,W3} = lc_bc_quals(Qs0,D2,W2),
+    {E1,_D1,W1} = expr(E0,D0,W0),
+    {P1,D2,W2} = pattern(P0,defs_start_shadowing(D0),W1),
+    {Qs1,D3,W3} = lc_bc_quals(Qs0,defs_end_shadowing(D2),W2),
     {[{b_generate,Line,P1,E1}|Qs1],D3,W3};
 lc_bc_quals([E0|Qs0],D0,W0) ->
     {E1,D1,W1} = expr(E0,D0,W0),
