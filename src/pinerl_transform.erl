@@ -1,6 +1,6 @@
 -module(pinerl_transform).
 
--export([parse_transform/2, format_error/1]).
+-export([parse_transform/2]).
 
 %% We can't dogfood by default or we get bootstrapping issues.
 -ifdef(pinerl_transform_dogfood).
@@ -9,8 +9,10 @@
 -define(PIN(X),X).
 -endif.
 
+-define(WARNING_MODULE, pinerl).
+
 -type defs() :: {ordsets:set(atom()),ordsets:set(atom())}.
--type warns() :: [{integer(),?MODULE,term()}].
+-type warns() :: [{integer(),?WARNING_MODULE,term()}].
 -type file() :: {string(), integer()}.
 -type file_warns() :: [{file(),warns()}].
 
@@ -23,11 +25,6 @@ parse_transform(Forms0, _Options) ->
 	[] ->  Forms1;
 	_ -> {warning, Forms1, Warns}
     end.
-
-format_error({match_without_pin, V}) ->
-    io_lib:format("variable ~p matched without pin", [V]);
-format_error({undefined_var, V}) ->
-    io_lib:format("variable ~p is unbound in pin", [V]).
 
 -spec forms([Form], warns(), nofile|file(), [Form]) ->
 		   {[Form], file_warns()}.
@@ -135,7 +132,7 @@ pattern({var,Line,V},D={_S,Defs},W0) ->
     %% TODO: THE MAGIC HAPPENS HERE
     W1 = case ordsets:is_element(V,Defs) of
 	     false -> W0;
-	     true -> [{Line, ?MODULE, {match_without_pin, V}} | W0]
+	     true -> [{Line, ?WARNING_MODULE, {match_without_pin, V}} | W0]
 	 end,
     {{var,Line,V}, defs_add(V,D), W1};
 pattern({match,Line,L0,R0},D0,W0) ->
@@ -193,7 +190,7 @@ pattern({block,_BLine,[{var,VLine,V}]},D={_S,Defs},W0) ->
 	     false -> 
 		 %% case ordsets:is_element(V,S) of
 		 %%     true -> %% TODO: EXTRA FEATURE
-		 [{VLine, ?MODULE, {undefined_var, V}} | W0]
+		 [{VLine, ?WARNING_MODULE, {undefined_var, V}} | W0]
 	 end,
     %% Insert anyway to not generate spurious extra warnings
     {{var, VLine, V}, defs_add(V, D), W1};

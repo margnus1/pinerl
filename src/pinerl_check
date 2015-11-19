@@ -1,0 +1,127 @@
+#!/usr/bin/env escript
+%% -*- erlang -*-
+
+-record(options, {
+	  files    = [] :: [string()],
+	  includes = [] :: [string()],
+	  defines  = [] :: [string()] | [atom() | {atom(), term()}],
+	  papaths  = [] :: [string()],
+	  pzpaths  = [] :: [string()],
+	  copts    = [] :: [string()] | [term()]
+	 }).
+
+main([]) -> usage();
+main(CmdLine) ->
+    try parse_options(CmdLine) of
+	Opts=#options{files=Files, papaths=PAPaths, pzpaths=PZPaths} ->
+	    %% Ignore errors, just like erlc (sic)
+	    lists:foreach(fun code:add_patha/1, PAPaths), 
+	    lists:foreach(fun code:add_pathz/1, PZPaths),
+
+	    lists:foreach(fun(F) -> analyze_file(F, Opts) end, Files)
+    catch throw:{error, Reason} ->
+	    io:fwrite(standard_error, "~s~n", [Reason]),
+	    usage(),
+	    halt(1)
+    end.
+
+parse_options(Options) ->
+    O = #options{copts=StrOpts, defines=StrDefs} = do_parse_options(Options),
+    O#options{copts=[parse_term(Opt) || Opt <- StrOpts]
+	     ,defines=[parse_define(Def) || Def <- StrDefs]}.
+
+parse_define(Str) ->
+    case string:chr(Str, $=) of
+	0 -> parse_atom(Str);
+	Pos -> {parse_atom(string:substr(Str, 1, Pos-1)),
+		parse_term(string:substr(Str, Pos+1))}
+    end.    
+
+parse_atom(Str) ->
+    case parse_term(Str) of
+	Atom when is_atom(Atom) -> Atom
+    end.
+
+parse_term(Str) ->
+    {ok, Tokens, _} = erl_scan:string(Str ++ "."),
+    {ok, Term} = erl_parse:parse_term(Tokens),
+    Term.
+
+-define(PATH_OPTION_CLAUSES(Opt, Field),
+do_parse_options([Opt]) -> throw({error, "No value given to " Opt " option"});
+do_parse_options([Opt ++ (Path=[_|_]) | Rest]) ->
+    RestOpts = #options{Field=FieldRest} = do_parse_options(Rest),
+    RestOpts#options{Field=[Path|FieldRest]};
+do_parse_options([Opt, Path | Rest]) ->
+    RestOpts = #options{Field=FieldRest} = do_parse_options(Rest),
+    RestOpts#options{Field=[Path|FieldRest]}).
+
+?PATH_OPTION_CLAUSES("-I",  includes);
+?PATH_OPTION_CLAUSES("-D",  defines);
+?PATH_OPTION_CLAUSES("-pa", papaths);
+?PATH_OPTION_CLAUSES("-pz", papaths);
+?PATH_OPTION_CLAUSES("+",   copts);
+do_parse_options([File | Rest]) ->
+    RestOpts = #options{files=Files} = do_parse_options(Rest),
+    RestOpts#options{files=[File|Files]};
+do_parse_options([]) -> #options{}.
+
+usage() ->
+    io:fwrite("Usage: pinerl_check [Options] file.ext ...~n"
+	      "Options:~n"
+	      "-Dname         define name~n"
+	      "-Dname=value   define name to have value~n"
+	      "-I path        where to search for include files~n"
+	      "-pa path       add path to the front of Erlang's code path~n"
+	      "-pz path       add path to the end of Erlang's code path~n").
+
+analyze_file(File, Opts) ->
+    try
+	Warnings = do_analyze_file(File, Opts),
+	print_errors(Warnings)
+    catch throw:{error, Info} ->
+	    print_errors(Info)
+    end.
+
+do_analyze_file(File, #options{includes=Includes, defines=Macros,
+			       copts=COpts}) ->
+    %% TODO: error handling
+    {ok, Epp} = epp:open(File, Includes, Macros),
+    Forms = 
+	try 
+	    collect_forms(File, Epp)
+	after epp:close(Epp)
+	end,
+    case pinerl:module(Forms, File, COpts) of
+	{ok, Ws} -> Ws;
+	{error, Es, Ws} ->
+	    throw({error, Es++Ws})
+    end.
+
+collect_forms(File, Epp) ->
+    case epp:parse_erl_form(Epp) of
+	{ok, AbsForm} -> [AbsForm|collect_forms(File, Epp)];
+	{eof, _Line} -> [];
+	{error, Info} -> throw({error, [{File, [Info]}]})
+    end.
+
+print_errors(Ws0) ->
+    P = "",
+    Ws1 = lists:flatmap(fun({{F,_L},Eds}) -> format_message(F, P, Eds);
+			   ({F,Eds}) -> format_message(F, P, Eds) end,
+			Ws0),
+    Ws = lists:sort(Ws1),
+    lists:foreach(fun({_,Str}) -> io:put_chars(Str) end, Ws).
+
+format_message(F, P, [{none,Mod,E}|Es]) ->
+    M = {none,io_lib:format("~ts: ~s~ts\n", [F,P,Mod:format_error(E)])},
+    [M|format_message(F, P, Es)];
+format_message(F, P, [{{Line,Column}=Loc,Mod,E}|Es]) ->
+    M = {{F,Loc},io_lib:format("~ts:~w:~w ~s~ts\n",
+                                [F,Line,Column,P,Mod:format_error(E)])},
+    [M|format_message(F, P, Es)];
+format_message(F, P, [{Line,Mod,E}|Es]) ->
+    M = {{F,{Line,0}},io_lib:format("~ts:~w: ~s~ts\n",
+                                [F,Line,P,Mod:format_error(E)])},
+    [M|format_message(F, P, Es)];
+format_message(_, _, []) -> [].
