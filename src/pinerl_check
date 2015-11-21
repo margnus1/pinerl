@@ -14,7 +14,7 @@ main([]) -> usage();
 main(CmdLine) ->
     try parse_options(CmdLine) of
 	Opts=#options{files=Files, papaths=PAPaths, pzpaths=PZPaths} ->
-	    %% Ignore errors, just like erlc (sic)
+	    %% Ignore errors, just like erlc
 	    lists:foreach(fun code:add_patha/1, PAPaths), 
 	    lists:foreach(fun code:add_pathz/1, PZPaths),
 

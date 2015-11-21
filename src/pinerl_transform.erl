@@ -15,7 +15,10 @@
 -type warns() :: [{integer(),?WARNING_MODULE,term()}].
 -type file() :: {string(), integer()}.
 -type file_warns() :: [{file(),warns()}].
+-type forms() :: [erl_parse:abstract_form()].
 
+-spec parse_transform(forms(), list()) ->
+			     forms() | {warning,forms(),file_warns()}.
 parse_transform(Forms0, _Options) ->
     %% io:fwrite("~p~n", [Forms0]),
     %% {Forms1, Warns0} = lists:mapfoldl(fun (F, W0) -> form(F, W0) end, [], Forms),
@@ -480,10 +483,10 @@ expr({'fun',Line,Body},D0,W0) ->
 	    {Cs1,W1} = fun_clauses(Cs0,D0,W0),
 	    {{'fun',Line,{clauses,Cs1}},D0,W1};
 	{function,F,A} ->
-	    {'fun',Line,{function,F,A}};
+	    {{'fun',Line,{function,F,A}},D0,W0};
 	{function,M,F,A} when is_atom(M), is_atom(F), is_integer(A) ->
 	    %% R10B-6: fun M:F/A. (Backward compatibility)
-	    {'fun',Line,{function,M,F,A}};
+	    {{'fun',Line,{function,M,F,A}},D0,W0};
 	{function,M0,F0,A0} ->
 	    %% R15: fun M:F/A with variables.
 	    {M,D1,W1} = expr(M0,D0,W0),
@@ -617,7 +620,7 @@ defs_add(Var, {S,Defs}) ->
 
 -spec defs_start_shadowing(defs()) -> defs().
 defs_start_shadowing({S,Defs}) ->
-    0 = ordsets:size(S),
+    {0, _} = {ordsets:size(S), S},
     {Defs, ordsets:new()}.
 
 -spec defs_end_shadowing(defs()) -> defs().

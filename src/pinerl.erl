@@ -4,11 +4,21 @@
 	,format_error/1
 	]).
 
+-type error_info() :: {none|erl_anno:line(), module(), term()}.
+-type errors() :: [{file:filename(), [error_info()]}].
+-type forms() :: [erl_parse:abstract_form()].
+-type options() :: [compile:option()].
+-type ret() :: {ok, errors()} | {error, errors(), errors()}.
+
+-spec module(forms()) -> ret().
+-spec module(forms(), file:filename()) -> ret().
+-spec module(forms(), file:filename(), options()) -> ret().
 module(AbsForm) -> analyze(AbsForm, []).
 module(AbsForm, FileName) -> module(AbsForm, FileName, []).
 module(AbsForm, FileName, CompileOptions) ->
     analyze([{attribute,1,file,FileName}|AbsForm], CompileOptions).
 
+-spec analyze(forms(), options()) -> ret().
 analyze(AbsForm, Options) ->
     File = case AbsForm of
 	       [{attribute,_,file,F}|_] -> F;
@@ -17,8 +27,8 @@ analyze(AbsForm, Options) ->
     case catch pinerl_transform:parse_transform(AbsForm, Options) of
 	{error,Es,Ws} -> {error,Es,Ws};
 	{'EXIT',R} ->
-	    {error,[{File,{none,compile,
-			   {parse_transform,pinerl_transform,R}}}]};
+	    {error,[{File,[{none,compile,
+			    {parse_transform,pinerl_transform,R}}]}], []};
 	{warning, _Fs, Ws} -> {ok, Ws};
 	_Fs -> {ok, []}
     end.
