@@ -20,10 +20,7 @@
 -spec parse_transform(forms(), list()) ->
 			     forms() | {warning,forms(),file_warns()}.
 parse_transform(Forms0, _Options) ->
-    %% io:fwrite("~p~n", [Forms0]),
-    %% {Forms1, Warns0} = lists:mapfoldl(fun (F, W0) -> form(F, W0) end, [], Forms),
     {Forms1, Warns} = forms(Forms0, [], nofile, []),
-    %% io:fwrite(standard_error, "~p~n", [Warns]),
     case Warns of
 	[] ->  Forms1;
 	_ -> {warning, Forms1, Warns}
@@ -32,26 +29,8 @@ parse_transform(Forms0, _Options) ->
 -spec forms([Form], warns(), nofile|file(), [Form]) ->
 		   {[Form], file_warns()}.
 
-%% First the various attributes.
-%% form({attribute,Line,module,Mod}) ->
-%%     {attribute,Line,module,Mod};
 forms([{attribute,Line,file,File}|Fs],W,_F,Acc) ->	%This is valid anywhere.
     forms(Fs, W, File, [{attribute,Line,file,File}|Acc]);
-%% form({attribute,Line,export,Es0}) ->
-%%     Es1 = farity_list(Es0),
-%%     {attribute,Line,export,Es1};
-%% form({attribute,Line,import,{Mod,Is0}}) ->
-%%     Is1 = farity_list(Is0),
-%%     {attribute,Line,import,{Mod,Is1}};
-%% form({attribute,Line,compile,C}) ->
-%%     {attribute,Line,compile,C};
-%% form({attribute,Line,record,{Name,Defs0}}) ->
-%%     Defs1 = record_defs(Defs0),
-%%     {attribute,Line,record,{Name,Defs1}};
-%% form({attribute,Line,asm,{function,N,A,Code}}) ->
-%%     {attribute,Line,asm,{function,N,A,Code}};
-%% form({attribute,Line,Attr,Val}) ->		%The general attribute.
-%%     {attribute,Line,Attr,Val};
 forms([{function,Line,Name0,Arity0,Clauses0}|Fs], W0, File, Acc) ->
     {{Name,Arity,Clauses}, FW} = function(Name0, Arity0, Clauses0, []),
     W1 = case FW of
@@ -59,33 +38,9 @@ forms([{function,Line,Name0,Arity0,Clauses0}|Fs], W0, File, Acc) ->
 	     _ -> [{File,FW}|W0]
 	 end,
     forms(Fs, W1, File, [{function,Line,Name,Arity,Clauses}|Acc]);
-% Mnemosyne, ignore...
-%% form({rule,Line,Name,Arity,Body}) ->
-%%     {rule,Line,Name,Arity,Body}; % Dont dig into this
-%% Extra forms from the parser.
-%% form({error,E}) -> {error,E};
-%% form({warning,W}) -> {warning,W};
-%% form({eof,Line}) -> {eof,Line};
 forms([Other|Fs], W, F, Acc) -> forms(Fs, W, F, [Other|Acc]);
 forms([], Warns, _File, Forms) ->
     {lists:reverse(Forms), lists:reverse(Warns)}.
-
-%% -type farity_list([Farity]) -> [Farity] when Farity <= {atom(),integer()}.
-
-%% farity_list([{Name,Arity}|Fas]) ->
-%%     [{Name,Arity}|farity_list(Fas)];
-%% farity_list([]) -> [].
-
-%% %% -type record_defs([RecDef]) -> [RecDef].
-%% %%  N.B. Field names are full expressions here but only atoms are allowed
-%% %%  by the *parser*!
-
-%% record_defs([{record_field,Line,{atom,La,A},Val0}|Is]) ->
-%%     Val1 = expr(Val0),
-%%     [{record_field,Line,{atom,La,A},Val1}|record_defs(Is)];
-%% record_defs([{record_field,Line,{atom,La,A}}|Is]) ->
-%%     [{record_field,Line,{atom,La,A}}|record_defs(Is)];
-%% record_defs([]) -> [].
 
 -spec function(atom(), integer(), [Clause], warns()) -> 
 		      {{atom(),integer(),[Clause]}, warns()}.
@@ -105,7 +60,6 @@ clauses([], W) -> {[], W}.
 -spec clause(Clause,defs(),warns()) -> {Clause, defs(), warns()}.
 
 clause({clause,Line,H0,G,B0},D0,W0) ->
-    %% TODO: Wrong place to do shadowing (it is reused for case etc)
     {H1,D1,W1} = head(H0,D0,W0),
     %% No more shadowing after the head
     D2 = defs_end_shadowing(D1),
@@ -127,7 +81,6 @@ patterns([P0|Ps0],D0,W0) ->
 patterns([],D,W) -> {[],D,W}.
 
 -spec pattern(Pattern, defs(), warns()) -> {Pattern, defs(), warns()}.
-%%  N.B. Only valid patterns are included here.
 
 pattern({var,Line,'_'},D,W) ->
     {{var,Line,'_'},D,W};
@@ -156,9 +109,6 @@ pattern({map_field_exact,Line,K,V},D0,W0) ->
     {Ke,D1,W1} = expr(K,D0,W0),
     {Ve,D2,W2} = pattern(V,D1,W1),
     {{map_field_exact,Line,Ke,Ve},D2,W2};
-%%pattern({struct,Line,Tag,Ps0}) ->
-%%    Ps1 = pattern_list(Ps0),
-%%    {struct,Line,Tag,Ps1};
 pattern({record,Line,Name,Pfs0},D0,W0) ->
     {Pfs1,D1,W1} = pattern_fields(Pfs0,D0,W0),
     {{record,Line,Name,Pfs1},D1,W1};
@@ -176,16 +126,6 @@ pattern({record_field,Line,Rec0,Field0},D0,W0) ->
 pattern({bin,Line,Fs},D0,W0) ->
     {Fs2,D1,W1} = pattern_grp(Fs,D0,W0),
     {{bin,Line,Fs2},D1,W1};
-%% pattern({op,Line,Op,A}) ->
-%%     {op,Line,Op,A};
-%% pattern({op,Line,Op,L,R}) ->
-%%     {op,Line,Op,L,R};
-%% pattern({integer,Line,I}) -> {integer,Line,I};
-%% pattern({char,Line,C}) -> {char,Line,C};
-%% pattern({float,Line,F}) -> {float,Line,F};
-%% pattern({atom,Line,A}) -> {atom,Line,A};
-%% pattern({string,Line,S}) -> {string,Line,S};
-%% pattern({nil,Line}) -> {nil,Line};
 pattern({block,_BLine,[{var,VLine,V}]},D={_S,Defs},W0) ->
     %% TODO: THE MAGIC HAPPENS HERE
     W1 = case ordsets:is_element(V,Defs) of
@@ -254,129 +194,6 @@ pattern_fields([{record_field,Lf,{var,La,'_'},P0}|Pfs0],D0,W0) ->
     {[{record_field,Lf,{var,La,'_'},P1}|Pfs1],D2,W2};
 pattern_fields([],D,W) -> {[],D,W}.
 
-%% %% -type guard([GuardTest]) -> [GuardTest].
-
-%% guard([G0|Gs0],D0,W0) when list(G0) ->
-%%     {G1, W1} = guard0(G0, W0),
-%%     {Gs1, W2} = guard(Gs0),
-%%     {[G1 | Gs1], W2};
-%% guard(L,D,W) ->
-%%     guard0(L,D,W).
-
-%% guard0([G0|Gs],D0,W0) ->
-%%     G1 =  guard_test(G0),
-%%     [G1|guard0(Gs)];
-%% guard0([],_D,W) -> {[],W}.
-
-%% guard_test(Expr={call,Line,{atom,La,F},As0}) ->
-%%     case erl_internal:type_test(F, length(As0)) of
-%% 	true -> 
-%% 	    As1 = gexpr_list(As0),
-%% 	    {call,Line,{atom,La,F},As1};
-%% 	_ ->
-%% 	    gexpr(Expr)
-%%     end;
-%% guard_test(Any) ->
-%%     gexpr(Any).
-
-%% %% Before R9, there were special rules regarding the expressions on
-%% %% top level in guards. Those limitations are now lifted - therefore
-%% %% there is no need for a special clause for the toplevel expressions.
-%% %% -type gexpr(GuardExpr) -> GuardExpr.
-
-%% gexpr({var,Line,V}) -> {var,Line,V};
-%% gexpr({integer,Line,I}) -> {integer,Line,I};
-%% gexpr({char,Line,C}) -> {char,Line,C};
-%% gexpr({float,Line,F}) -> {float,Line,F};
-%% gexpr({atom,Line,A}) -> {atom,Line,A};
-%% gexpr({string,Line,S}) -> {string,Line,S};
-%% gexpr({nil,Line}) -> {nil,Line};
-%% gexpr({map,Line,Map0,Es0}) ->
-%%     [Map1|Es1] = gexpr_list([Map0|Es0]),
-%%     {map,Line,Map1,Es1};
-%% gexpr({map,Line,Es0}) ->
-%%     Es1 = gexpr_list(Es0),
-%%     {map,Line,Es1};
-%% gexpr({map_field_assoc,Line,K,V}) ->
-%%     Ke = gexpr(K),
-%%     Ve = gexpr(V),
-%%     {map_field_assoc,Line,Ke,Ve};
-%% gexpr({map_field_exact,Line,K,V}) ->
-%%     Ke = gexpr(K),
-%%     Ve = gexpr(V),
-%%     {map_field_exact,Line,Ke,Ve};
-%% gexpr({cons,Line,H0,T0}) ->
-%%     H1 = gexpr(H0),
-%%     T1 = gexpr(T0),				%They see the same variables
-%%     {cons,Line,H1,T1};
-%% gexpr({tuple,Line,Es0}) ->
-%%     Es1 = gexpr_list(Es0),
-%%     {tuple,Line,Es1};
-%% gexpr({record_index,Line,Name,Field0}) ->
-%%     Field1 = gexpr(Field0),
-%%     {record_index,Line,Name,Field1};
-%% gexpr({record_field,Line,Rec0,Name,Field0}) ->
-%%     Rec1 = gexpr(Rec0),
-%%     Field1 = gexpr(Field0),
-%%     {record_field,Line,Rec1,Name,Field1};
-%% gexpr({record,Line,Name,Inits0}) ->
-%%     Inits1 = grecord_inits(Inits0),
-%%     {record,Line,Name,Inits1};
-%% gexpr({call,Line,{atom,La,F},As0}) ->
-%%     case erl_internal:guard_bif(F, length(As0)) of
-%% 	true -> As1 = gexpr_list(As0),
-%% 		{call,Line,{atom,La,F},As1}
-%%     end;
-%% % Guard bif's can be remote, but only in the module erlang...
-%% gexpr({call,Line,{remote,La,{atom,Lb,erlang},{atom,Lc,F}},As0}) ->
-%%     case erl_internal:guard_bif(F, length(As0)) or
-%% 	 erl_internal:arith_op(F, length(As0)) or 
-%% 	 erl_internal:comp_op(F, length(As0)) or
-%% 	 erl_internal:bool_op(F, length(As0)) of
-%% 	true -> As1 = gexpr_list(As0),
-%% 		{call,Line,{remote,La,{atom,Lb,erlang},{atom,Lc,F}},As1}
-%%     end;
-%% gexpr({bin,Line,Fs}) ->
-%%     Fs2 = pattern_grp(Fs),
-%%     {bin,Line,Fs2};
-%% gexpr({op,Line,Op,A0}) ->
-%%     case erl_internal:arith_op(Op, 1) or 
-%% 	 erl_internal:bool_op(Op, 1) of
-%% 	true -> A1 = gexpr(A0),
-%% 		{op,Line,Op,A1}
-%%     end;
-%% gexpr({op,Line,Op,L0,R0}) when Op =:= 'andalso'; Op =:= 'orelse' ->
-%%     %% R11B: andalso/orelse are now allowed in guards.
-%%     L1 = gexpr(L0),
-%%     R1 = gexpr(R0),			%They see the same variables
-%%     {op,Line,Op,L1,R1};
-%% gexpr({op,Line,Op,L0,R0}) ->
-%%     case erl_internal:arith_op(Op, 2) or
-%% 	  erl_internal:bool_op(Op, 2) or 
-%% 	  erl_internal:comp_op(Op, 2) of
-%% 	true ->
-%% 	    L1 = gexpr(L0),
-%% 	    R1 = gexpr(R0),			%They see the same variables
-%% 	    {op,Line,Op,L1,R1}
-%%     end.
-
-%% %% -type gexpr_list([GuardExpr]) -> [GuardExpr].
-%% %%  These expressions are processed "in parallel" for purposes of variable
-%% %%  definition etc.
-
-%% gexpr_list([E0|Es]) ->
-%%     E1 = gexpr(E0),
-%%     [E1|gexpr_list(Es)];
-%% gexpr_list([]) -> [].
-
-%% grecord_inits([{record_field,Lf,{atom,La,F},Val0}|Is]) ->
-%%     Val1 = gexpr(Val0),
-%%     [{record_field,Lf,{atom,La,F},Val1}|grecord_inits(Is)];
-%% grecord_inits([{record_field,Lf,{var,La,'_'},Val0}|Is]) ->
-%%     Val1 = gexpr(Val0),
-%%     [{record_field,Lf,{var,La,'_'},Val1}|grecord_inits(Is)];
-%% grecord_inits([]) -> [].
-
 -spec exprs([Expression], defs(), warns()) -> {[Expression], defs(), warns()}.
 %%  These expressions are processed "sequentially" for purposes of variable
 %%  definition etc.
@@ -389,13 +206,6 @@ exprs([],D,W) -> {[],D,W}.
 
 -spec expr(Expression,defs(),warns()) -> {Expression,defs(),warns()}.
 
-%% expr({var,Line,V}) -> {var,Line,V};
-%% expr({integer,Line,I}) -> {integer,Line,I};
-%% expr({float,Line,F}) -> {float,Line,F};
-%% expr({atom,Line,A}) -> {atom,Line,A};
-%% expr({string,Line,S}) -> {string,Line,S};
-%% expr({char,Line,C}) -> {char,Line,C};
-%% expr({nil,Line}) -> {nil,Line};
 expr({cons,Line,H0,T0},D0,W0) ->
     {H1,D1,W1} = expr(H0,D0,W0),
     {T1,D2,W2} = expr(T0,D1,W1),				%They see the same variables
