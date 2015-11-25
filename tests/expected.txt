@@ -1,0 +1,19 @@
+tests/cases.erl:31: variable 'A' matched without pin
+tests/cases.erl:37: variable 'A' is unbound in pin
+tests/cases.erl:44: variable '_A' is unbound in pin
+tests/cons.erl:19: variable 'A' matched without pin
+tests/funs.erl:44: variable '_A' is unbound in pin
+tests/funs.erl:48: variable 'A' matched without pin
+tests/funs.erl:51: variable 'Var' matched without pin
+tests/lc.erl:39: variable 'X' is unbound in pin
+tests/lc.erl:43: variable 'X' matched without pin
+tests/lc.erl:47: variable 'X' matched without pin
+tests/lc.erl:50: variable '_X' is unbound in pin
+tests/lc.erl:54: variable '_X' is unbound in pin
+tests/lc.erl:57: variable '_X' is unbound in pin
+tests/lc.erl:60: variable 'X' matched without pin
+tests/receives.erl:28: variable '_A' matched without pin
+tests/receives.erl:33: variable '_A' is unbound in pin
+tests/receives.erl:39: variable '_A' is unbound in pin
+tests/receives.erl:47: variable 'A' matched without pin
+tests/tuple.erl:11: variable 'X' matched without pin

@@ -18,7 +18,19 @@ main(CmdLine) ->
 	    lists:foreach(fun code:add_patha/1, PAPaths), 
 	    lists:foreach(fun code:add_pathz/1, PZPaths),
 
-	    lists:foreach(fun(F) -> analyze_file(F, Opts) end, Files)
+	    case code:ensure_loaded(pinerl) of
+		{module, pinerl} ->
+		    case analyze_files(Files, Opts) of
+			true -> ok;
+			false -> halt(1)
+		    end;
+		{error, Reason} ->
+		    io:fwrite(standard_error,
+			      "Error: Can't find the pinerl module: ~w. "
+			      "Try adding it to the code path with -pa\n",
+			      [Reason]),
+		    halt(1)
+	    end
     catch throw:{error, Reason} ->
 	    io:fwrite(standard_error, "~s~n", [Reason]),
 	    usage(),
@@ -75,12 +87,22 @@ usage() ->
 	      "-pa path       add path to the front of Erlang's code path~n"
 	      "-pz path       add path to the end of Erlang's code path~n").
 
+analyze_files([], _Opts) ->
+    true;
+analyze_files([File|Files], Opts) ->
+    analyze_file(File, Opts) and analyze_files(Files, Opts).
+
 analyze_file(File, Opts) ->
     try
 	Warnings = do_analyze_file(File, Opts),
-	print_errors(Warnings)
+	print_errors(Warnings),
+	case Warnings of
+	    [] -> true;
+	    _ -> false
+	end
     catch throw:{error, Info} ->
-	    print_errors(Info)
+	    print_errors(Info),
+	    false
     end.
 
 do_analyze_file(File, #options{includes=Includes, defines=Macros,
