@@ -11,5 +11,10 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
+-ifndef(PINERL_HRL).
+-define(PINERL_HRL, true).
+
 -compile([{parse_transform, pinerl_transform}]).
 -define(PIN(X), begin X end).
+
+-endif. % PINERL_HRL

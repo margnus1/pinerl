@@ -33,15 +33,28 @@
 -spec parse_transform(forms(), list()) ->
 			     forms() | {warning,forms(),file_warns()}.
 parse_transform(Forms0, _Options) ->
-    {Forms1, Warns} = forms(Forms0, [], nofile, []),
-    case Warns of
-	[] ->  Forms1;
-	_ -> {warning, Forms1, Warns}
+    case forms(Forms0, [], nofile, []) of
+	{Forms1, Warns} ->
+	    Forms2 = insert_transformed_attribute(Forms1),
+	    case Warns of
+		[] ->  Forms2;
+		_ -> {warning, Forms2, Warns}
+	    end;
+	already_processed ->
+	    Forms0
     end.
 
--spec forms([Form], warns(), nofile|file(), [Form]) ->
-		   {[Form], file_warns()}.
+insert_transformed_attribute([{attribute, Line, module, _}=E|Rest]) ->
+    [E,{attribute,Line,pinerl_transformed,nil}|Rest];
+insert_transformed_attribute([Form|Forms]) ->
+    [Form|insert_transformed_attribute(Forms)].
 
+-spec forms([Form], warns(), nofile|file(), [Form]) ->
+		   {[Form], file_warns()} | already_processed.
+
+forms([{attribute,_Line,pinerl_transformed,_}|_],_W,_F,_Acc) ->
+    %% Avoid bad warnings if the parse transform is applied twice
+    already_processed;
 forms([{attribute,Line,file,File}|Fs],W,_F,Acc) ->	%This is valid anywhere.
     forms(Fs, W, File, [{attribute,Line,file,File}|Acc]);
 forms([{function,Line,Name0,Arity0,Clauses0}|Fs], W0, File, Acc) ->
