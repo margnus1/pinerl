@@ -4,8 +4,7 @@ Pinerl brings the
 from the Elixir language to Erlang by the means of a parse transform. Use of a
 pin operator in Erlang code makes the programmer's intent explicit, making it
 easier to read. It also discoverers a real and common mistake in Erlang code
-&endash; unintentional matching &endash; that is not found by any other
-warnings.
+&ndash; unintentional matching &ndash; that is not found by any other warnings.
 
 As the implementation is a parse transform, the syntax for the Pin operator must
 be syntactically valid Erlang, but preferably semantically invalid. The current
