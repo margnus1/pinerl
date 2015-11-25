@@ -14,7 +14,7 @@
 PROJECT=pinerl
 include erlang.mk
 
-all:: test dogfood dialyze
+all:: test dogfood
 
 dogfood:
 	@echo " PINERL "src/*.erl
