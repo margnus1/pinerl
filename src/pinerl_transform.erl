@@ -61,7 +61,19 @@ forms([{function,Line,Name0,Arity0,Clauses0}|Fs], W0, File, Acc) ->
     {{Name,Arity,Clauses}, FW} = function(Name0, Arity0, Clauses0, []),
     W1 = case FW of
 	     [] -> W0;
-	     _ -> [{File,FW}|W0]
+	     _ ->
+		 %% Since rebar reimplements the compiler, it does not accept
+		 %% all the formats the real compiler does. If we include the
+		 %% inclusion-point, rebar will crash with a cryptic error when
+		 %% a warning is emitted. Sigh...
+		 FileName = case File of
+				{FileName0, _FileInclusionLine} -> FileName0;
+				FileName0
+				  when is_list(FileName0); is_atom(FileName0);
+				       is_binary(FileName0) ->
+				    FileName0
+			    end,
+		 [{FileName,FW}|W0]
 	 end,
     forms(Fs, W1, File, [{function,Line,Name,Arity,Clauses}|Acc]);
 forms([Other|Fs], W, F, Acc) -> forms(Fs, W, F, [Other|Acc]);
