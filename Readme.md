@@ -21,8 +21,8 @@ included from `pinerl.hrl`:
 # How to Use
 It is recommended you use Pinerl in your entire project to minimise
 confusion. Therefore, you should include the parse transform in your compiler
-options (`"+{parse_transform,pinerl_transform}"`). In any files the `?PIN(X)`
-macro is needed, include the header:
+options (`"+{parse_transform,pinerl_transform}"`). In any files where the
+`?PIN(X)` macro is needed, include the header:
 
     -include_lib("pinerl/include/pinerl.hrl").
 
@@ -39,3 +39,11 @@ from `erlang.mk`) *before* the previous to set the default options explicitly:
 
     ERLC_OPTS ?= -Werror +debug_info +warn_export_vars +warn_shadow_vars \
 	    +warn_obsolete_guard # +bin_opt_info +warn_export_all +warn_missing_spec
+
+## Rebar
+Add the following to your `deps` and `erl_opts` lists in `rebar.config`:
+
+    {deps, [{pinerl, ".*",
+             {git, "git://github.com/margnus1/pinerl.git", {branch, "master"}}}
+        ]}.
+    {erl_opts, [{parse_transform,pinerl_transform}]}.
