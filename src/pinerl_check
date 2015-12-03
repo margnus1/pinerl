@@ -84,7 +84,7 @@ do_parse_options([Opt, Path | Rest]) ->
 ?PATH_OPTION_CLAUSES("-I",  includes);
 ?PATH_OPTION_CLAUSES("-D",  defines);
 ?PATH_OPTION_CLAUSES("-pa", papaths);
-?PATH_OPTION_CLAUSES("-pz", papaths);
+?PATH_OPTION_CLAUSES("-pz", pzpaths);
 ?PATH_OPTION_CLAUSES("+",   copts);
 do_parse_options([File | Rest]) ->
     RestOpts = #options{files=Files} = do_parse_options(Rest),
