@@ -1,10 +1,35 @@
 # Pinerl
 Pinerl brings the
 [Pin operator](http://elixir-lang.org/getting-started/pattern-matching.html#the-pin-operator)
-from the Elixir language to Erlang by the means of a parse transform. Use of a
+from the Elixir language to Erlang by the means of a parse transform. Use of the
 pin operator in Erlang code makes the programmer's intent explicit, making it
 easier to read. It also discoverers a real and common mistake in Erlang code
 &ndash; unintentional matching &ndash; that is not found by any other warnings.
+
+When compiled with Pinerl, code like this will give you a warning
+
+    X0 = math:pi(),
+    Y0 = math:e(),
+    X0 = Y0 + X0,
+
+    sample:3: Warning: variable 'X0' matched without pin
+
+Reminding you that you either should have either used a new name `X1` for your
+new value, or the pin operator, depending on whether you intended to match. Here
+is the same code but with the pin operator applied, making the authors intent to
+match explicit:
+
+    X0 = math:pi(),
+    Y0 = math:e(),
+    ?PIN(X0) = Y0 + X0,
+
+Of course, using the pin operator on a new binding also gives you a warning:
+
+    X0 = math:pi(),
+    Y0 = math:e(),
+    ?PIN(X1) = Y0 + X0,
+
+    sample:3: Warning: variable 'X1' is unbound in pin
 
 As the implementation is a parse transform, the syntax for the Pin operator must
 be syntactically valid Erlang, but preferably semantically invalid. The current
@@ -45,5 +70,5 @@ Add the following to your `deps` and `erl_opts` lists in `rebar.config`:
 
     {deps, [{pinerl, ".*",
              {git, "git://github.com/margnus1/pinerl.git", {branch, "master"}}}
-        ]}.
+           ]}.
     {erl_opts, [{parse_transform,pinerl_transform}]}.
