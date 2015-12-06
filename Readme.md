@@ -1,10 +1,14 @@
 # Pinerl
 Pinerl brings the
 [Pin operator](http://elixir-lang.org/getting-started/pattern-matching.html#the-pin-operator)
-from the Elixir language to Erlang by the means of a parse transform. Use of the
-pin operator in Erlang code makes the programmer's intent explicit, making it
-easier to read. It also discoverers a real and common mistake in Erlang code
-&ndash; unintentional matching &ndash; that is not found by any other warnings.
+from the Elixir language to Erlang by the means of a parse transform. The pin
+operator must be applied to any variables in patterns that are matched by value,
+rather than bound there. In Elixir, the pin operator is a necessity to be able
+to match existing values, since the default behaviour is to shadow the old
+value. That is, of course, not the case for Erlang, but the use of the pin
+operator makes the programmer's intent explicit, making it easier to read. It
+also discoverers a real and common mistake in Erlang code &ndash; unintentional
+matching &ndash; that is not found by any other warnings.
 
 When compiled with Pinerl, code like this will give you a warning
 
